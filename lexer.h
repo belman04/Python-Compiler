@@ -1,6 +1,9 @@
 #ifndef LEXER_H // start of the header 
 #define LEXER_H // custom header file for the lexer module
 
+#define MAX_TOKEN_LENGTH 100 // maximum length of a token
+#define MAX_TOKENS_PER_LINE 100 // maximum number of tokens per line
+
 //types of tokens
 typedef enum {
     TOKEN_IDENTIFIER, 
@@ -54,7 +57,7 @@ typedef enum {
 // a structure to hold a token
 typedef struct{
     tokenType type; // the type of the token
-    char value[64]; // the value of the token, a character array to hold the value
+    char value[MAX_TOKEN_LENGTH]; // the value of the token, a character array to hold the value
 } token;
 
 // we bring the function here so that it can be used in other files

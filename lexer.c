@@ -174,10 +174,10 @@ const char* token_type_to_string(tokenType type) {
 
 // function that takes a line of text and processes it for tokens
 void tokenize_line(const char* line, int line_number) {
-    token tokens[100]; // maximum of 100 tokens per line
+    token tokens[MAX_TOKENS_PER_LINE]; // maximum of 100 tokens per line
     int token_index = 0; // index for the tokens array
 
-    char token_buffer[64]; // buffer to hold the current token
+    char token_buffer[MAX_TOKEN_LENGTH]; // buffer to hold the current token
     int index = 0; // index for the token buffer
     int i = 0; // index for the input line
     int in_string = 0; // flag to indicate if we are inside a string

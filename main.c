@@ -1,6 +1,9 @@
 #include <stdio.h> // standard library header for input/output operations
 #include "lexer.h" // custom header file for the lexer module
 #include "parser.h" // custom header file for the parser module
+#include "ast.h" // custom header file for the AST module
+
+extern ASTNode* ast_root;
 
 int main(){
 
@@ -33,5 +36,8 @@ int main(){
     // tokenize is a function to process the line for tokens
 
     fclose(file); // a function to clse the file 
+    print_ast(ast_root, 0); // prints the AST in a readable format, the second argument is the indentation level
+    free_ast(ast_root); // frees the memory allocated for the AST
+
     return 0; // a return value of 0 indicates success
 }
