@@ -2,67 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "lexer.h"
-
-//types of tokens
-typedef enum {
-    TOKEN_IDENTIFIER, 
-    TOKEN_NUMBER,
-    TOKEN_STRING,
-
-    // arithmetic operators
-    TOKEN_ADD,
-    TOKEN_SUB,
-    TOKEN_MUL,
-    TOKEN_DIV,
-    TOKEN_INT_DIV,   
-
-    // assignment operators
-    TOKEN_ASSIGN,
-    TOKEN_ADD_ASSIGN,
-    TOKEN_SUB_ASSIGN,
-    TOKEN_MUL_ASSIGN,
-    TOKEN_DIV_ASSIGN,
-    TOKEN_INT_DIV_ASSIGN,
-    
-    // comparison operators
-    TOKEN_GREATER_THAN,
-    TOKEN_LESS_THAN,
-    TOKEN_EQUAL,
-    TOKEN_NOT_EQUAL,
-    TOKEN_GREATER_THAN_OR_EQUAL,
-    TOKEN_LESS_THAN_OR_EQUAL,
-
-    // logical operators
-    TOKEN_AND,
-    TOKEN_OR,
-    TOKEN_NOT,
-    
-    // functions
-    TOKEN_PRINT,
-
-    // control flow
-    TOKEN_IF,
-    TOKEN_ELSE,
-    TOKEN_WHILE,
-
-    // punctuation
-    TOKEN_COMMA,
-    TOKEN_COLON,
-    TOKEN_LEFT_PAREN,
-    TOKEN_RIGHT_PAREN,
-    TOKEN_LEFT_BRACKET,
-    TOKEN_RIGHT_BRACKET,
-
-    TOKEN_UNKNOWN
-
-} tokenType;
-
-
-// a structure to hold a token
-typedef struct{
-    tokenType type; // the type of the token
-    char value[64]; // the value of the token, a character array to hold the value
-} token;
+#include "parser.h"
 
 // a function to identify a token
 token identify_token(char* input){
@@ -79,6 +19,9 @@ token identify_token(char* input){
     } else if(strcmp(input, "while") == 0){
         t.type = TOKEN_WHILE;
         return t; // return the token
+    } else if(strcmp(input, "elif") == 0){
+        t.type = TOKEN_ELIF;
+        return t; // return the tokem
     }
 
     // check for arithmetic operators
@@ -99,26 +42,11 @@ token identify_token(char* input){
         return t; // return the token
     }
 
-    // check for assignment operators
+    // check for assignment operator
     if(strcmp(input, "=") == 0){ // strcmp is a function to compare two strings
         t.type = TOKEN_ASSIGN; // set the token type to assign
         return t; // return the token
-    } else if(strcmp(input, "+=") == 0){
-        t.type = TOKEN_ADD_ASSIGN;
-        return t; // return the token
-    } else if(strcmp(input, "-=") == 0){
-        t.type = TOKEN_SUB_ASSIGN;
-        return t; // return the token
-    } else if(strcmp(input, "*=") == 0){
-        t.type = TOKEN_MUL_ASSIGN;
-        return t; // return the token
-    } else if(strcmp(input, "/=") == 0){
-        t.type = TOKEN_DIV_ASSIGN;
-        return t; // return the token
-    } else if(strcmp(input, "//=") == 0){
-        t.type = TOKEN_INT_DIV_ASSIGN;
-        return t; // return the token
-    }
+    } 
 
     // check for comparison operators
     if(strcmp(input, ">") == 0){ // strcmp is a function to compare two strings
@@ -140,6 +68,7 @@ token identify_token(char* input){
         t.type = TOKEN_LESS_THAN_OR_EQUAL;
         return t; // return the token
     }
+    
 
     // check for logical operators
     if(strcmp(input, "and") == 0){ // strcmp is a function to compare two strings
@@ -175,9 +104,13 @@ token identify_token(char* input){
     }
 
     // check for functions
-    if(strcmp(input, "print") == 0){ // strcmp is a function to compare two strings
-        t.type = TOKEN_PRINT; // set the token type to print
-        return t; // return the token
+    if(isalpha(input[0])){
+        if (strcmp(input, "print") == 0) {
+            t.type = TOKEN_PRINT;
+            return t;
+        }
+        t.type = TOKEN_IDENTIFIER; 
+        return t;
     }
 
     // check if the input is a number
@@ -214,11 +147,6 @@ const char* token_type_to_string(tokenType type) {
         case TOKEN_DIV: return "TOKEN_DIV";
         case TOKEN_INT_DIV: return "TOKEN_INT_DIV";
         case TOKEN_ASSIGN: return "TOKEN_ASSIGN";
-        case TOKEN_ADD_ASSIGN: return "TOKEN_ADD_ASSIGN";
-        case TOKEN_SUB_ASSIGN: return "TOKEN_SUB_ASSIGN";
-        case TOKEN_MUL_ASSIGN: return "TOKEN_MUL_ASSIGN";
-        case TOKEN_DIV_ASSIGN: return "TOKEN_DIV_ASSIGN";
-        case TOKEN_INT_DIV_ASSIGN: return "TOKEN_INT_DIV_ASSIGN";
         case TOKEN_GREATER_THAN: return "TOKEN_GREATER_THAN";
         case TOKEN_LESS_THAN: return "TOKEN_LESS_THAN";
         case TOKEN_EQUAL: return "TOKEN_EQUAL";
@@ -232,6 +160,7 @@ const char* token_type_to_string(tokenType type) {
         case TOKEN_IF: return "TOKEN_IF";
         case TOKEN_ELSE: return "TOKEN_ELSE";
         case TOKEN_WHILE: return "TOKEN_WHILE";
+        case TOKEN_ELIF: return "TOKEN_ELIF";
         case TOKEN_COMMA: return "TOKEN_COMMA";
         case TOKEN_COLON: return "TOKEN_COLON";
         case TOKEN_LEFT_PAREN: return "TOKEN_LEFT_PAREN";
@@ -239,29 +168,93 @@ const char* token_type_to_string(tokenType type) {
         case TOKEN_LEFT_BRACKET: return "TOKEN_LEFT_BRACKET";
         case TOKEN_RIGHT_BRACKET: return "TOKEN_RIGHT_BRACKET";
         case TOKEN_UNKNOWN: return "TOKEN_UNKNOWN";
-        default: return "UNKNOWN_TOKEN";
+        default: return "Error: Unknown token type";
     }
 }
 
 // function that takes a line of text and processes it for tokens
-void tokenize_line(const char* line){
-    char copy[256]; // a character array to hold a copy of the line
+void tokenize_line(const char* line, int line_number) {
+    token tokens[100]; // maximum of 100 tokens per line
+    int token_index = 0; // index for the tokens array
 
-    // strcpy is a function to copy a string from one location to another, in this case, from line to copy
-    strcpy(copy, line); 
+    char token_buffer[64]; // buffer to hold the current token
+    int index = 0; // index for the token buffer
+    int i = 0; // index for the input line
+    int in_string = 0; // flag to indicate if we are inside a string
 
-    // ignore comments
-    char* comment_start = strchr(copy, '#'); // strchr is a function to find the first occurrence of a character in a string
-    if (comment_start != NULL){
-        *comment_start = '\0'; // set the character at the comment start to null, effectively removing the comment
+    while (line[i] != '\0') { // while we haven't reached the end of the line
+        char c = line[i]; // get the current character
+
+        if (c == '#') break; // to ignore comments 
+
+        if (in_string) { // if we are inside a string
+            token_buffer[index++] = c; // add the character to the token buffer
+            if (c == '"') { // if we reach the end of the string
+                token_buffer[index] = '\0'; // we terminate the string
+                token t = identify_token(token_buffer); // identify the token
+                if (t.type == TOKEN_UNKNOWN) {
+                    printf("Error: unknown token in line %d: %s", line_number, line);
+                } else {
+                    printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type));
+                    tokens[token_index++] = t; // store the token in the tokens array
+                }
+                index = 0; // reset the index
+                in_string = 0; // reset the flag
+            }
+        } else if (isspace(c)) { // if the character is a whitespace
+            if (index > 0) { // if we have a token in the buffer
+                token_buffer[index] = '\0'; // terminate the token string
+                token t = identify_token(token_buffer); // identify the token
+                if (t.type == TOKEN_UNKNOWN) {
+                    printf("Error: unknown token in line %d: %s", line_number, line);
+                } else {
+                    printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type));
+                    tokens[token_index++] = t; // store the token in the tokens array
+                }
+                index = 0;
+            }
+        } else if (c == '(' || c == ')' || c == ':' || c == ',') { // if the character is a punctuation mark
+            if (index > 0) { // if we have a token in the buffer
+                token_buffer[index] = '\0'; // terminate the token string
+                token t = identify_token(token_buffer); // identify the token
+                if (t.type == TOKEN_UNKNOWN) {
+                    printf("Error: unknown token in line %d: %s", line_number, line);
+                } else {
+                    printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type));
+                    tokens[token_index++] = t; // store the token in the tokens array
+                }
+                index = 0; // reset the index
+            }
+            token_buffer[0] = c; // store the punctuation mark in the buffer
+            token_buffer[1] = '\0'; // terminate the string
+            token t = identify_token(token_buffer); // identify the token
+            if (t.type == TOKEN_UNKNOWN) {
+                printf("Error: unknown token in line %d: %s", line_number, line);
+            } else {
+                printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type)); 
+                tokens[token_index++] = t; // store the token in the tokens array
+            }
+        } else if (c == '"') { // if we encounter a double quote, we start a string
+            token_buffer[index++] = c; // add the double quote to the token buffer
+            in_string = 1; // set the flag to indicate we are inside a string
+        } else { // if the character is not a whitespace, punctuation, or a double quote
+            token_buffer[index++] = c; // add the character to the token buffer
+        }
+
+        i++; // move to the next character        
+
     }
 
-    char* input = strtok(copy, " \n\t");
-
-    // a loop to iterate through each token in the line
-    while(input != NULL){ 
-        token t = identify_token(input); // call the identify_token function to get the token
-        printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type));
-        input = strtok(NULL, " \n\t"); // get the next token
+    if (index > 0) { // if we have a token in the buffer after processing the line
+        token_buffer[index] = '\0'; // terminate the token string
+        token t = identify_token(token_buffer); // identify the token
+        if (t.type == TOKEN_UNKNOWN) {
+            printf("Error: unknown token in line %d: %s", line_number, line);
+        } else {
+            printf("Token: %s, Type: %s\n", t.value, token_type_to_string(t.type));
+            tokens[token_index++] = t; // store the token in the tokens array
+        }
     }
+
+    parse_tokens(tokens, token_index, line_number); // parse the tokens for the line
 }
